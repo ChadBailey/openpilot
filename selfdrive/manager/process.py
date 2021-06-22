@@ -5,6 +5,7 @@ import time
 import subprocess
 from abc import ABC, abstractmethod
 from multiprocessing import Process
+from typing import Optional
 
 from setproctitle import setproctitle  # pylint: disable=no-name-in-module
 
@@ -58,11 +59,11 @@ def join_process(process, timeout):
 
 
 class ManagerProcess(ABC):
-  unkillable = False
-  daemon = False
-  sigkill = False
-  proc = None
-  enabled = True
+  unkillable: bool = False
+  daemon: bool = False
+  sigkill: bool = False
+  proc: Optional[Process] = None
+  enabled: bool = True
   name = ""
 
   last_watchdog_time = 0
@@ -190,7 +191,7 @@ class NativeProcess(ManagerProcess):
 
     cwd = os.path.join(BASEDIR, self.cwd)
     cloudlog.info("starting process %s" % self.name)
-    self.proc = Process(name=self.name, target=nativelauncher, args=(self.cmdline, cwd))
+    self.proc: Process = Process(name=self.name, target=nativelauncher, args=(self.cmdline, cwd))
     self.proc.start()
     self.watchdog_seen = False
     self.shutting_down = False
@@ -221,7 +222,7 @@ class PythonProcess(ManagerProcess):
       return
 
     cloudlog.info("starting python %s" % self.module)
-    self.proc = Process(name=self.name, target=launcher, args=(self.module,))
+    self.proc: Process = Process(name=self.name, target=launcher, args=(self.module,))
     self.proc.start()
     self.watchdog_seen = False
     self.shutting_down = False

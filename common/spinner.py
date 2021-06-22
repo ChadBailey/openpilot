@@ -25,7 +25,10 @@ class Spinner():
         pass
 
   def update_progress(self, cur: int, total: int):
-    self.update(str(round(100 * cur / total)))
+    # Always floor progress bars because they indicate fully completed chunks 
+    # of work. For example, given compilation is 99.6% complete the user should
+    # see "Compiling... 99% complete" rather than "Compiling... 100% complete"
+    self.update(str(100 * cur // total))
 
   def close(self):
     if self.spinner_proc is not None:

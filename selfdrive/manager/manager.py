@@ -5,6 +5,7 @@ import signal
 import subprocess
 import sys
 import traceback
+from typing import Union, NoReturn
 
 import cereal.messaging as messaging
 import selfdrive.crash as crash
@@ -102,14 +103,25 @@ def manager_prepare():
     p.prepare()
 
 
-def manager_cleanup():
+def manager_cleanup() -> None:
+  """Kills all processes in `managed_processes`"""
   for p in managed_processes.values():
     p.stop()
 
   cloudlog.info("everything is dead")
 
 
-def manager_thread():
+def manager_thread() -> Union[NoReturn, None]:
+  """
+  Initializes the openpilot manager thread which launches and manages all
+  processes found in `manager.process_config.managed_processes()`.
+
+  NoReturn:
+    Does not return (typical operation)
+
+  None:
+    Returns None When `Params().get_bool("DoUninstall")` is True
+  """
   cloudlog.info("manager start")
   cloudlog.info({"environ": os.environ})
 
@@ -124,7 +136,7 @@ def manager_thread():
   if os.getenv("NOBOARD") is not None:
     ignore.append("pandad")
   if os.getenv("BLOCK") is not None:
-    ignore += os.getenv("BLOCK").split(",")
+    ignore += os.getenv("BLOCK","").split(",")
 
   ensure_running(managed_processes.values(), started=False, not_run=ignore)
 
@@ -162,10 +174,20 @@ def manager_thread():
     # TODO: let UI handle this
     # Exit main loop when uninstall is needed
     if params.get_bool("DoUninstall"):
-      break
+      return None
 
 
-def main():
+def main() -> Union[NoReturn, None]:
+  """
+  Main function of openpilot. Spawns threads via `manager_thread()`.
+
+  NoReturn:
+    Does not return until receives SIGTERM (typical operation)
+
+  None:
+    1. Returns None when "PREPAREDONLY" is supplied (for tests)
+    2. Returns None when DoUninstall is requested via params
+  """
   prepare_only = os.getenv("PREPAREONLY") is not None
 
   manager_init()
@@ -177,7 +199,7 @@ def main():
   manager_prepare()
 
   if prepare_only:
-    return
+    return None
 
   # SystemExit on sigterm
   signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(1))
@@ -193,6 +215,7 @@ def main():
   if Params().get_bool("DoUninstall"):
     cloudlog.warning("uninstalling")
     HARDWARE.uninstall()
+  return None
 
 
 if __name__ == "__main__":
