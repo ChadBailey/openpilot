@@ -11,11 +11,12 @@ import cereal.messaging as messaging
 import selfdrive.crash as crash
 from common.basedir import BASEDIR
 from common.params import Params, ParamKeyType
+from common.terminal import TerminalString, TERM_THEMES
 from common.text_window import TextWindow
 from selfdrive.boardd.set_time import set_time
 from selfdrive.hardware import HARDWARE, PC, TICI
 from selfdrive.manager.helpers import unblock_stdout
-from selfdrive.manager.process import ensure_running
+from selfdrive.manager.process import DaemonProcess, NativeProcess, PythonProcess, ensure_running
 from selfdrive.manager.process_config import managed_processes
 from selfdrive.athena.registration import register, UNREGISTERED_DONGLE_ID
 from selfdrive.swaglog import cloudlog, add_file_handler
@@ -162,8 +163,14 @@ def manager_thread() -> Union[NoReturn, None]:
 
     started_prev = started
 
-    running_list = ["%s%s\u001b[0m" % ("\u001b[32m" if p.proc.is_alive() else "\u001b[31m", p.name)
-                    for p in managed_processes.values() if p.proc]
+    running_list: List[Any[DaemonProcess,NativeProcess,PythonProcess]] = []
+    for p in managed_processes.values():
+      if p.proc:
+        if p.proc.is_alive():
+          theme = TERM_THEMES.RUNNING
+        else:
+          theme = TERM_THEMES.STOPPED
+        running_list += TerminalString(p.name,theme).raw
     cloudlog.debug(' '.join(running_list))
 
     # send managerState
