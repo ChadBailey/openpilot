@@ -1,0 +1,19 @@
+site_name: Comma AI - OpenPilot
+site_url: ""
+repo_url: https://github.com/commaai/openpilot/tools/
+
+
+theme:
+  name: mkdocs
+  locale: en
+  highlightjs: true
+
+# plugins:
+#   - search:
+#     min_search_length: 2
+#     indexing: 'full'
+
+# markdown_extensions:
+#   - toc:
+#     permalink: True
+#     separator: "-"
