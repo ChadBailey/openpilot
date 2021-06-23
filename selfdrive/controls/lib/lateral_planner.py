@@ -59,6 +59,10 @@ class LateralPlanner():
     self.lane_change_direction = LaneChangeDirection.none
     self.lane_change_timer = 0.0
     self.lane_change_ll_prob = 1.0
+    self.lane_change_comfort_time = timedelta(seconds=3)
+    self.lane_change_debounce_time = timedelta(seconds=0.5)
+    self.lane_change_start_time = None
+    self.lane_change_debounce_start = None
     self.prev_one_blinker = False
     self.desire = log.LateralPlan.Desire.none
 
@@ -102,17 +106,29 @@ class LateralPlanner():
     one_blinker = sm['carState'].leftBlinker != sm['carState'].rightBlinker
     below_lane_change_speed = v_ego < LANE_CHANGE_SPEED_MIN
 
-    if (not active) or (self.lane_change_timer > LANE_CHANGE_TIME_MAX):
+    if self.lane_change_debounce_start:
+      if datetime.now() - self.lane_change_debounce_start > self.lane_change_debounce_time:
+        self.lane_change_debounce_start = None
+        debounce = False
+      else:
+        debounce = True
+    else:
+      debounce = False
+
+    if (not active) or (self.lane_change_timer > LANE_CHANGE_TIME_MAX) or (debounce):
       self.lane_change_state = LaneChangeState.off
       self.lane_change_direction = LaneChangeDirection.none
     else:
       # LaneChangeState.off
-      if self.lane_change_state == LaneChangeState.off and one_blinker and not self.prev_one_blinker and not below_lane_change_speed:
+      if (self.lane_change_state == LaneChangeState.off and 
+        one_blinker and
+        not self.prev_one_blinker and
+        not below_lane_change_speed
+      ):
         self.lane_change_state = LaneChangeState.preLaneChange
         self.lane_change_ll_prob = 1.0
-        # How long to keep prompt up before disposing (comfort blinker - see #21130)
-        self.lane_change_comfort_time = timedelta(seconds=3)
         self.lane_change_start_time = None
+        self.lane_change_debounce_start = None
 
       # LaneChangeState.preLaneChange
       elif self.lane_change_state == LaneChangeState.preLaneChange:
@@ -128,6 +144,8 @@ class LateralPlanner():
         elif datetime.now() - self.lane_change_start_time > self.lane_change_comfort_time:
           self.lane_change_state = LaneChangeState.off
           self.lane_change_direction = LaneChangeDirection.none
+          if not self.lane_change_debounce_start:
+            self.lane_change_debounce_start = datetime.now()
 
         torque_applied = sm['carState'].steeringPressed and \
                         ((sm['carState'].steeringTorque > 0 and self.lane_change_direction == LaneChangeDirection.left) or
