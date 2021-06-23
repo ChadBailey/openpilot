@@ -1,6 +1,7 @@
 import os
 import math
 import numpy as np
+from datetime import timedelta, datetime
 from common.realtime import sec_since_boot, DT_MDL
 from common.numpy_fast import interp, clip
 from selfdrive.swaglog import cloudlog
@@ -109,15 +110,23 @@ class LateralPlanner():
       if self.lane_change_state == LaneChangeState.off and one_blinker and not self.prev_one_blinker and not below_lane_change_speed:
         self.lane_change_state = LaneChangeState.preLaneChange
         self.lane_change_ll_prob = 1.0
+        # How long to keep prompt up before disposing (comfort blinker - see #21130)
+        self.lane_change_comfort_time = timedelta(seconds=3)
+        self.lane_change_start_time = None
 
       # LaneChangeState.preLaneChange
       elif self.lane_change_state == LaneChangeState.preLaneChange:
+        if not self.lane_change_start_time:
+          self.lane_change_start_time = datetime.now()
         # Set lane change direction
         if sm['carState'].leftBlinker:
           self.lane_change_direction = LaneChangeDirection.left
         elif sm['carState'].rightBlinker:
           self.lane_change_direction = LaneChangeDirection.right
-        else:  # If there are no blinkers we will go back to LaneChangeState.off
+        # If there are no blinkers and it's exceeded lane_change_comfort_time
+        # we will go back to LaneChangeState.off
+        elif datetime.now() - self.lane_change_start_time > self.lane_change_comfort_time:
+          self.lane_change_state = LaneChangeState.off
           self.lane_change_direction = LaneChangeDirection.none
 
         torque_applied = sm['carState'].steeringPressed and \
